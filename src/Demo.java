@@ -4,9 +4,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
@@ -20,6 +22,79 @@ public class Demo {
 
 		// demo1();
 
+		// demoResultSet();
+
+		demoMetaData();
+
+	}
+
+	private static void demoMetaData() throws IOException, FileNotFoundException, ClassNotFoundException, SQLException {
+		// Chargement du fichier de configuration
+		Properties props = new Properties();
+
+		try (FileInputStream fis = new FileInputStream("conf.properties")) {
+
+			props.load(fis);
+
+		}
+
+		// Instanciation du driver en mémoire
+		Class.forName(props.getProperty("jdbc.driver.class"));
+
+		String url = props.getProperty("jdbc.url");
+		String dbLogin = props.getProperty("jdbc.login");
+		String dbPassword = props.getProperty("jdbc.password");
+		try (Connection connection = DriverManager.getConnection(url, dbLogin, dbPassword)) {
+
+			// Récupération de la liste des tables
+			DatabaseMetaData dbMetadata = connection.getMetaData();
+
+			try (ResultSet resultSet = dbMetadata.getTables(connection.getCatalog(), null, "T_%", null)) {
+
+				while (resultSet.next()) {
+
+					System.out.print(resultSet.getString("TABLE_NAME") + " - ");
+
+				}
+
+			}
+
+			// Saisie d'un nom de table pour l'afficher
+			System.out.print("\n\nEnter the table to view : ");
+			String tableName = keyboard.readLine();
+
+			String strSql = "SELECT * FROM " + tableName;
+
+			try (Statement statement = connection.createStatement();
+					ResultSet resultSet = statement.executeQuery(strSql)) {
+
+				ResultSetMetaData rsMetaData = resultSet.getMetaData();
+				int columnCount = rsMetaData.getColumnCount();
+
+				// Affichage de l'entête
+				for (int i = 1; i <= columnCount; i++) {
+					System.out.printf("%-20s", rsMetaData.getColumnName(i) + " [" + rsMetaData.getColumnTypeName(i)+"]");
+				}
+
+				System.out.println(
+						"\n-----------------------------------------------------------------------------------");
+
+				// Parcours des données pour les afficher
+				while (resultSet.next()) {
+
+					for (int i = 1; i <= columnCount; i++) {
+						System.out.printf("%-20s", resultSet.getString(i));
+					}
+					System.out.println();
+
+				}
+			}
+
+		}
+	}
+
+	private static void demoResultSet()
+			throws IOException, FileNotFoundException, ClassNotFoundException, SQLException {
 		// Chargement du fichier de configuration
 		Properties props = new Properties();
 
@@ -81,7 +156,7 @@ public class Demo {
 						exit = true;
 						break;
 
-					default: 
+					default:
 						System.out.println("Bad command " + command);
 					}
 
@@ -90,7 +165,6 @@ public class Demo {
 			}
 
 		}
-
 	}
 
 	private static void demo1() throws IOException, FileNotFoundException, ClassNotFoundException, SQLException {

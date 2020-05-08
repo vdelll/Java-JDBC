@@ -3,6 +3,7 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Properties;
@@ -44,36 +45,52 @@ public class Demo {
 				System.out.print("Password : ");
 				String password = keyboard.readLine();
 
+				// Injections SQL possibles :
+				// Ripley' --
+				// ???' OR 1=1 --
+				// ' OR 1=1 ; DROP TABLE T_Users --
 				// Select avec les informations récupérées
-				String strSql = "SELECT * FROM T_Users WHERE login= '" + login + "' AND password='" + password + "'";
+				// String strSql = "SELECT * FROM T_Users WHERE login= '" + login + "' AND
+				// password='" + password + "'";
 
-				try (Statement statement = connection.createStatement();
-						ResultSet resultSet = statement.executeQuery(strSql)) {
+				// Ordre SQL préparé pour éviter les injections
+				String strSql = "SELECT * FROM T_Users WHERE login=? AND password=?";
 
-					// Si l'utilisateur n'existe pas, le next renvoie false
-					if (resultSet.next()) {
+				try (PreparedStatement statement = connection.prepareStatement(strSql)) {
 
-						// Ajoute une connexion si l'utilisateur se connecte
-						strSql = "UPDATE T_Users SET connectionNumber=connectionNumber+1 WHERE idUser = "
-								+ resultSet.getInt("idUser");
+					statement.setString(1, login);
+					statement.setString(2, password);
+					System.out.println(statement); // Affichage de l'oredre après l'injection des données
 
-						try (Statement stUpdate = connection.createStatement()) {
+					try (ResultSet resultSet = statement.executeQuery()) {
 
-							stUpdate.executeUpdate(strSql);
+						// Si l'utilisateur n'existe pas, le next renvoie false
+						if (resultSet.next()) {
 
+							// Ajoute une connexion si l'utilisateur se connecte
+							strSql = "UPDATE T_Users SET connectionNumber=connectionNumber+1 WHERE idUser=?";
+
+							try (PreparedStatement stUpdate = connection.prepareStatement(strSql)) {
+
+								stUpdate.setInt(1, resultSet.getInt("idUser"));
+								System.out.println(stUpdate);
+								stUpdate.executeUpdate();
+
+							}
+
+							// Sort de la boucle si l'utilisateur est connecté
+							readedLogin = resultSet.getString("login");
+							break;
 						}
 
-						// Sort de la boucle si l'utilisateur est connecté
-						readedLogin = resultSet.getString("login");
-						break;
-					}
+						System.out.println("Wrong password !");
 
-					System.out.println("Wrong password !");
+					}
 
 				}
 
 			}
-			
+
 			System.out.println("Welcome " + readedLogin + " !");
 
 //			String strSql = "INSERT INTO T_Users (idUser, login, password, connectionNumber) "
